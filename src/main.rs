@@ -1,7 +1,11 @@
 extern crate iced;
 extern crate solo2;
 use iced::{
-    widget::{container, pane_grid, text},
+    widget::{
+        container,
+        pane_grid::{self, Axis},
+        text,
+    },
     Element, Fill,
 };
 use solo2::{apps::Oath, UuidSelectable};
@@ -34,8 +38,11 @@ struct State {
 
 impl State {
     fn new() -> Self {
-        let (pane, _) = pane_grid::State::new(Pane::new(0));
-        State { panes: pane }
+        let (mut pane, _) = pane_grid::State::new(Pane::new(0));
+        let (first_pane, _) = pane.iter().next().expect("Panegrid was empty.");
+        pane.split(Axis::Vertical, *first_pane, Pane::new(0));
+        let state = State { panes: pane };
+        state
     }
     fn update(counter: &mut State, message: Message) {
         // match message {
@@ -44,7 +51,7 @@ impl State {
     }
 
     fn view(&self) -> Element<'_, Message> {
-        let pane_grid = iced::widget::PaneGrid::new(&self.panes, |_, _, _| {
+        let pane_grid = iced::widget::PaneGrid::new(&self.panes, |pane, _, _| {
             container(text("Text".to_string()))
                 .width(Fill)
                 .height(Fill)
