@@ -5,10 +5,12 @@ use iced::{
         container,
         pane_grid::{self, Axis},
         text,
+        button,
+        span,
     },
     Element, Fill,
 };
-use solo2::{apps::Oath, UuidSelectable};
+// use solo2::{apps::Oath, UuidSelectable};
 
 fn main() -> iced::Result {
     // Get devices
@@ -22,14 +24,16 @@ fn main() -> iced::Result {
     iced::run("Solo2 Gui", State::update, State::view)
 }
 
-struct Pane {
-    id: usize,
+enum Pane {
+    // Shows solo2 apps like fido and oath
+    AppList,
+    // Shows the content of these apps, like TOTP keys and fido websites
+    Content,
 }
 
-impl Pane {
-    fn new(id: usize) -> Self {
-        Self { id }
-    }
+#[derive(Debug,Clone)]
+enum Message {
+    OathButtonPress,
 }
 
 struct State {
@@ -38,24 +42,32 @@ struct State {
 
 impl State {
     fn new() -> Self {
-        let (mut pane, _) = pane_grid::State::new(Pane::new(0));
-        let (first_pane, _) = pane.iter().next().expect("Panegrid was empty.");
-        pane.split(Axis::Vertical, *first_pane, Pane::new(0));
-        let state = State { panes: pane };
+        let (mut pane, _) = pane_grid::State::new(Pane::AppList);
+        let (first_pane, _) = pane.iter().next().expect("No panes in panegrid.");
+        pane.split(Axis::Vertical, *first_pane, Pane::Content);
+        let state = State { panes: pane, };
         state
     }
     fn update(counter: &mut State, message: Message) {
-        // match message {
-        //    Message::x => ,
-        // }
+        match message {
+           Message::OathButtonPress => println!("Button Pressed"),
+        }
     }
 
+    // Code concerned with displaying the state and returning messages (showing UI and responding to interaction)
     fn view(&self) -> Element<'_, Message> {
         let pane_grid = iced::widget::PaneGrid::new(&self.panes, |pane, _, _| {
-            container(text("Text".to_string()))
-                .width(Fill)
-                .height(Fill)
-                .into()
+            // Option<&Pane> will always return because we get pane from &self.panes
+            // Add content to AppList and Content panes
+            pane_grid::Content::new(
+            match &self.panes.get(pane).unwrap() {
+                Pane::AppList => {
+                    <iced::widget::Button<'_, Message, iced::Theme, iced::Renderer> as Into<iced::Element<'_, Message, iced::Theme, iced::Renderer>>>::into(button("Oath").on_press(Message::OathButtonPress).into())
+                },
+                Pane::Content => {
+                    text("Test".to_string()).into()
+                },
+            })
         });
         container(pane_grid)
             .width(Fill)
@@ -70,6 +82,3 @@ impl Default for State {
         State::new()
     }
 }
-
-#[derive(Debug)]
-struct Message;
