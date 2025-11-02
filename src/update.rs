@@ -11,6 +11,10 @@ impl State {
                 state.content = Content::Oath;
                 iced::Task::none()
             }
+            Message::OathTOTPLifeRefresh(_instant) => {
+                state.content = Content::Oath;
+                iced::Task::none()
+            }
             Message::TOTPLabelPress(label) => {
                 let mut devices = solo2::Device::list();
                 if devices.len() != 0 {

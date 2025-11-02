@@ -9,7 +9,6 @@ pub enum Pane {
 
 #[derive(Debug)]
 pub enum Content {
-    Empty,
     Oath,
 }
 
@@ -20,12 +19,18 @@ pub struct State {
 
 impl State {
     pub fn new() -> Self {
-        let (mut pane, _) = pane_grid::State::new(Pane::AppList);
-        let (first_pane, _) = pane.iter().next().expect("No panes in panegrid.");
-        pane.split(Axis::Vertical, *first_pane, Pane::Content);
+        let (mut pane_grid_state, _) = pane_grid::State::new(Pane::AppList);
+        let (first_pane, _) = pane_grid_state
+            .iter()
+            .next()
+            .expect("No panes in panegrid.");
+        let (_, split) = pane_grid_state
+            .split(Axis::Vertical, *first_pane, Pane::Content)
+            .expect("Could not split panegrid.");
+        pane_grid_state.resize(split, 0.3);
         let state = State {
-            panes: pane,
-            content: Content::Empty,
+            panes: pane_grid_state,
+            content: Content::Oath,
         };
         state
     }
