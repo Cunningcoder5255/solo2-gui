@@ -9,16 +9,20 @@ pub enum Pane {
 
 #[derive(Debug)]
 pub enum Content {
-    Oath,
+    Oath(bool /* True to show screen for adding TOTP */),
 }
 
 pub struct State {
     pub panes: pane_grid::State<Pane>,
     pub content: Content,
+    pub adding_totp: bool,
+    pub label_input: String,
+    pub secret_input: String,
 }
 
 impl State {
     pub fn new() -> Self {
+        // Set up pane split
         let (mut pane_grid_state, _) = pane_grid::State::new(Pane::AppList);
         let (first_pane, _) = pane_grid_state
             .iter()
@@ -28,9 +32,13 @@ impl State {
             .split(Axis::Vertical, *first_pane, Pane::Content)
             .expect("Could not split panegrid.");
         pane_grid_state.resize(split, 0.3);
+
         let state = State {
             panes: pane_grid_state,
-            content: Content::Oath,
+            content: Content::Oath(false),
+            adding_totp: false,
+            label_input: "".to_string(),
+            secret_input: "".to_string(),
         };
         state
     }
