@@ -12,7 +12,7 @@ pub enum Pane {
 
 #[derive(Debug)]
 pub enum Content {
-    Oath(bool /* True to show screen for adding TOTP */),
+    Oath,
 }
 
 pub struct State {
@@ -47,7 +47,7 @@ impl State {
 
         let state = State {
             panes: pane_grid_state,
-            content: Content::Oath(false),
+            content: Content::Oath,
             adding_totp: false,
             label_input: "".to_string(),
             secret_input: "".to_string(),

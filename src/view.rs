@@ -26,7 +26,7 @@ impl State {
                 Pane::Content => {
                     match &self.content {
                         // Content for Oath app
-                        Content::Oath(adding_totp) => draw_totp_content(adding_totp, self),
+                        Content::Oath => draw_totp_content(self),
                     }
                 }
             })
@@ -39,7 +39,7 @@ impl State {
     }
 }
 
-fn draw_totp_content<'a>(adding_totp: &bool, state: &'a State) -> iced::Element<'a, Message> {
+fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
     if state.solo2.is_none() {
         return text("No solo2 device.").into();
     }
@@ -93,7 +93,7 @@ fn draw_totp_content<'a>(adding_totp: &bool, state: &'a State) -> iced::Element<
             .into(),
         );
     }
-    if *adding_totp {
+    if state.adding_totp {
         let label_input: iced::Element<Message> = text_input("Label", &state.label_input)
             .on_input(Message::UpdateLabelInput)
             .into();

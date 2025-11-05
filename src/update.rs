@@ -8,7 +8,7 @@ impl State {
     pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
         match message {
             Message::OathButtonPress => {
-                state.content = Content::Oath(state.adding_totp);
+                state.content = Content::Oath;
                 iced::Task::none()
             }
             Message::CancelAddingTOTP => {
@@ -24,12 +24,11 @@ impl State {
                 iced::Task::none()
             }
             Message::OathTOTPLifeRefresh(_instant) => {
-                state.content = Content::Oath(state.adding_totp);
+                state.content = Content::Oath;
                 iced::Task::none()
             }
             Message::AddTOTP => {
-                // Convert from Device type to Solo2 type
-                let solo2 = state.solo2.as_mut().unwrap();
+                let solo2 = state.solo2.as_mut().unwrap(); // Can unwrap because totp screen won't be shown if there are no devices
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
 
                 app.register(
