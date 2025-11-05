@@ -1,5 +1,6 @@
-- [] Fix performance issues
+- [ ] Fix performance issues
   - Async/Multithread device fetching
-  - Find way to extract device fetching from view and update functions and store it so it isn't unecessarily repeated
-- [] Add way to delete TOTP codes
-- [] Implement other solo2 cmd apps
+    - Still prob needed or some ordering changes because adding new totp is laggy
+  - !DONE! Find way to extract device fetching from view and update functions and store it so it isn't unecessarily repeated
+- [ ] Add way to delete TOTP codes
+- [ ] Implement other solo2 cmd apps

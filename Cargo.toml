@@ -8,6 +8,7 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic.git" }
 iced = { version = "0.13.1", features = ["tokio"] }
 solo = "0.0.1"
 solo2 = "0.2.2"
+rayon = "1.11.0"
 
 [profile.release]
 lto = "thin"

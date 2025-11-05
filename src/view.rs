@@ -1,10 +1,8 @@
 use crate::message::Message;
 use crate::state::{Content, Pane, State};
 use std::time::SystemTime;
-extern crate solo2;
-use solo2::apps::{Oath, oath};
-use solo2::{Select, UuidSelectable};
 extern crate iced;
+extern crate solo2;
 use iced::{
     Element, Fill, Shrink, alignment,
     widget::{self, button, center, container, pane_grid, row, text, text_input},
@@ -41,25 +39,15 @@ impl State {
     }
 }
 
-fn draw_totp_content(adding_totp: &bool, state: &State) -> iced::Element<'static, Message> {
+fn draw_totp_content<'a>(adding_totp: &bool, state: &'a State) -> iced::Element<'a, Message> {
+    if state.solo2.is_none() {
+        return text("No solo2 device.").into();
+    }
     // Vector to push elements to
     let mut oath_labels: Vec<iced::Element<Message>> = vec![];
 
-    let mut devices = solo2::Device::list();
-    if devices.len() == 0 {
-        // Early return to prevent accessing empty vec
-        return text("No Solo2 devices found.").into();
-    }
-    // Convert from Device type to Solo2 type
-    let mut solo2 = devices
-        .swap_remove(0)
-        .into_solo2()
-        .expect("Device is not a solo2 device.");
-    // Oath app
-    let mut app = Oath::select(&mut solo2).expect("Could not enter oath app.");
-    let app_list = app
-        .list()
-        .unwrap_or_else(|_| vec!["No TOTP codes.".to_string()]);
+    let totp_list = &state.totp_list;
+
     // How much time a totp code has left before expiring
     let totp_lifetime = (30
         - (SystemTime::now()
@@ -69,16 +57,13 @@ fn draw_totp_content(adding_totp: &bool, state: &State) -> iced::Element<'static
             % 30)) as f32;
 
     // Add TOTP labels and codes to vector to be turned added to a column and drawn
-    for label in app_list.into_iter() {
-        let totp = app
-            .authenticate(oath::Authenticate::with_label(&label))
-            .expect("No TOTP with label {label}.");
+    for (label, totp_code) in totp_list.into_iter() {
         let totp_label = text(label.clone())
             .width(Fill)
             .height(Fill)
             .size(24)
             .align_y(alignment::Vertical::Center);
-        let totp_text: iced::Element<Message> = center(text(totp).size(32))
+        let totp_text: iced::Element<Message> = center(text(totp_code).size(32))
             .width(Shrink)
             .height(Shrink)
             .into();
@@ -102,7 +87,7 @@ fn draw_totp_content(adding_totp: &bool, state: &State) -> iced::Element<'static
                 .spacing(10)
                 .height(Shrink),
             )
-            .on_press(Message::TOTPLabelPress(label))
+            .on_press(Message::TOTPLabelPress(label.clone()))
             .style(button::secondary)
             .padding(10)
             .into(),

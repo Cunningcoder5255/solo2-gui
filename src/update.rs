@@ -28,17 +28,9 @@ impl State {
                 iced::Task::none()
             }
             Message::AddTOTP => {
-                let mut devices = solo2::Device::list();
-                if devices.len() == 0 {
-                    // Early return to prevent accessing empty vec
-                    return iced::Task::none();
-                }
                 // Convert from Device type to Solo2 type
-                let mut solo2 = devices
-                    .swap_remove(0)
-                    .into_solo2()
-                    .expect("Device is not a solo2 device.");
-                let mut app = Oath::select(&mut solo2).expect("Could not enter oath app.");
+                let solo2 = state.solo2.as_mut().unwrap();
+                let mut app = Oath::select(solo2).expect("Could not enter oath app.");
 
                 app.register(
                     solo2::apps::oath::Credential::default_totp(
@@ -49,6 +41,7 @@ impl State {
                 )
                 .expect("Could not register TOTP code.");
                 state.adding_totp = false;
+                state.update_devices();
                 iced::Task::none()
             }
             Message::AddTOTPScreen => {
