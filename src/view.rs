@@ -75,24 +75,41 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .height(Fill)
             .align_x(alignment::Horizontal::Center)
             .align_y(alignment::Vertical::Center);
-        oath_labels.push(
-            button(
-                row![
-                    totp_label,
-                    totp_text,
-                    widget::stack![totp_lifetime_bar, totp_lifetime_text]
-                        .width(Shrink)
-                        .height(Fill)
-                ]
-                .spacing(10)
-                .height(Shrink),
-            )
-            .on_press(Message::TOTPLabelPress(label.clone()))
-            .style(button::secondary)
-            .padding(10)
-            .into(),
-        );
+        let delete_button: iced::Element<Message> = button(
+            text("Delete")
+                .align_x(alignment::Horizontal::Center)
+                .width(Fill),
+        )
+        .on_press(Message::DeleteTOTP(label.clone()))
+        .width(Fill)
+        .style(button::danger)
+        .into();
+
+        let mut totp_widget: iced::Element<Message> = button(
+            row![
+                totp_label,
+                totp_text,
+                widget::stack![totp_lifetime_bar, totp_lifetime_text]
+                    .width(Shrink)
+                    .height(Fill)
+            ]
+            .spacing(10)
+            .height(Shrink),
+        )
+        .on_press(Message::TOTPLabelPress(label.clone()))
+        .style(button::secondary)
+        .padding(10)
+        .into();
+
+        if state.deleting_totp == *label {
+            totp_widget = container(iced::widget::column![totp_widget, delete_button])
+                .style(container::rounded_box)
+                .into();
+        }
+        oath_labels.push(totp_widget);
     }
+
+    // Draw content for adding a TOTP code
     if state.adding_totp {
         let label_input: iced::Element<Message> = text_input("Label", &state.label_input)
             .on_input(Message::UpdateLabelInput)
@@ -109,14 +126,23 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .width(Fill)
             .style(button::secondary)
             .into();
-        oath_labels.push(
-            iced::widget::column![
-                row![label_input, secret_input].spacing(10),
-                row![cancel_button, add_button].spacing(10)
-            ]
-            .spacing(10)
-            .into(),
-        );
+        let invalid_secret_text: iced::Element<Message> = text("Secret is not 32 characters.")
+            .align_x(alignment::Horizontal::Center)
+            .into();
+        let mut adding_totp_widgets = iced::widget::column![
+            row![label_input, secret_input].spacing(10),
+            row![cancel_button, add_button].spacing(10)
+        ]
+        .spacing(10)
+        .into();
+
+        // Add invalid totp code length error message if necessary
+        if state.invalid_totp_code_length {
+            adding_totp_widgets =
+                iced::widget::column![adding_totp_widgets, invalid_secret_text].into();
+        }
+        oath_labels.push(adding_totp_widgets);
+        // Draw "+" button to start adding a TOTP code
     } else {
         let add_totp_button = button(center(text("+").size(32)).height(Shrink))
             .on_press(Message::AddTOTPScreen)

@@ -2,7 +2,7 @@ use crate::message::Message;
 use crate::state::State;
 extern crate solo2;
 use crate::state::Content;
-use solo2::{Select, UuidSelectable, apps::Oath};
+use solo2::{Select, apps::Oath};
 
 impl State {
     pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
@@ -13,6 +13,9 @@ impl State {
             }
             Message::CancelAddingTOTP => {
                 state.adding_totp = false;
+                state.invalid_totp_code_length = false;
+                state.label_input = "".to_string();
+                state.secret_input = "".to_string();
                 iced::Task::none()
             }
             Message::UpdateLabelInput(label) => {
@@ -28,6 +31,11 @@ impl State {
                 iced::Task::none()
             }
             Message::AddTOTP => {
+                if state.secret_input.len() != 32 {
+                    state.invalid_totp_code_length = true;
+                    return iced::Task::none();
+                }
+                state.invalid_totp_code_length = false;
                 let solo2 = state.solo2.as_mut().unwrap(); // Can unwrap because totp screen won't be shown if there are no devices
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
 
@@ -44,25 +52,32 @@ impl State {
                 iced::Task::none()
             }
             Message::AddTOTPScreen => {
+                state.deleting_totp = "".to_string();
                 state.adding_totp = true;
                 iced::Task::none()
             }
             Message::TOTPLabelPress(label) => {
-                let mut devices = solo2::Device::list();
-                if devices.len() != 0 {
-                    // Early return to prevent accessing empty vec
-                    return iced::Task::none();
-                }
-                // Convert from Device type to Solo2 type
-                let mut solo2 = devices
-                    .swap_remove(0)
-                    .into_solo2()
-                    .expect("Device is not a solo2 device.");
-                let mut app = Oath::select(&mut solo2).expect("Could not enter oath app.");
-                iced::clipboard::write::<Message>(
+                let solo2 = state.solo2.as_mut().unwrap();
+                let mut app = Oath::select(solo2).expect("Could not enter oath app.");
+                let task = iced::clipboard::write::<Message>(
                     app.authenticate(solo2::apps::oath::Authenticate::with_label(&label))
                         .expect("No TOTP with label: {label}"),
-                )
+                );
+
+                // Functionality to toggle deleting totp button
+                if state.deleting_totp == label {
+                    state.deleting_totp = "".to_string();
+                } else {
+                    state.deleting_totp = label;
+                }
+                task
+            }
+            Message::DeleteTOTP(label) => {
+                let solo2 = state.solo2.as_mut().unwrap();
+                let mut app = Oath::select(solo2).expect("Could not enter oath app.");
+                app.delete(label).expect("Could not delete TOTP.");
+                state.update_devices();
+                iced::Task::none()
             }
         }
     }

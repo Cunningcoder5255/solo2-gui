@@ -23,6 +23,8 @@ pub struct State {
     pub secret_input: String,
     pub solo2: Option<solo2::Solo2>,
     pub totp_list: Vec<(String, String)>,
+    pub deleting_totp: String,          /* label */
+    pub invalid_totp_code_length: bool, // When entered TOTP secret is invalid, such as too short, show error to user.
 }
 
 impl State {
@@ -53,10 +55,14 @@ impl State {
             secret_input: "".to_string(),
             solo2: solo2_device,
             totp_list: totp_list,
+            deleting_totp: "".to_string(),
+            invalid_totp_code_length: false,
         };
         state
     }
     pub fn update_devices(&mut self) {
+        // Get rid of solo2 device to ensure connection to device is broken so it will be reset when the smart card state is refreshed, like when adding or deleting a key
+        self.solo2 = Option::None;
         self.solo2 = Self::get_device();
         if self.solo2.is_some() {
             self.totp_list = Self::get_device_info(self.solo2.as_mut().unwrap());
@@ -81,7 +87,7 @@ impl State {
     }
     fn get_device_info(solo2_device: &mut solo2::Solo2) -> Vec<(String, String)> {
         // Oath app
-        let mut app = Oath::select(solo2_device).expect("Could not enter oath app.");
+        let mut app = Oath::select(solo2_device).expect("Could not enter OATH app:");
         let app_list = app
             .list()
             .unwrap_or_else(|_| vec!["No TOTP codes.".to_string()]);

@@ -8,6 +8,7 @@ pub enum Message {
     AddTOTPScreen,
     AddTOTP,
     CancelAddingTOTP,
+    DeleteTOTP(String /* Label */),
     UpdateLabelInput(String /* Label */),
     UpdateSecretInput(String /* Label */),
 }
