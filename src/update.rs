@@ -31,7 +31,7 @@ impl State {
                 iced::Task::none()
             }
             Message::AddTOTP => {
-                if state.secret_input.len() != 32 {
+                if state.secret_input.len() != 16 {
                     state.invalid_totp_code_length = true;
                     return iced::Task::none();
                 }
