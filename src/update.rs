@@ -26,6 +26,10 @@ impl State {
                 state.oath_state.secret_input = secret;
                 iced::Task::none()
             }
+            Message::ReloadDevices => {
+                state.update_devices();
+                iced::Task::none()
+            }
             Message::OathTOTPLifeRefresh(_instant) => {
                 state.content = Content::Oath;
                 iced::Task::none()
