@@ -15,16 +15,36 @@ pub enum Content {
     Oath,
 }
 
-pub struct State {
-    pub panes: pane_grid::State<Pane>,
-    pub content: Content,
+pub struct OathState {
     pub adding_totp: bool,
     pub label_input: String,
     pub secret_input: String,
-    pub solo2: Option<solo2::Solo2>,
     pub totp_list: Vec<(String, String)>,
     pub deleting_totp: String,          /* label */
     pub invalid_totp_code_length: bool, // When entered TOTP secret is invalid, such as too short, show error to user.
+}
+impl OathState {
+    pub fn new(solo2: &mut Option<solo2::Solo2>) -> Self {
+        let mut totp_list: Vec<(String, String)> = vec![];
+        if solo2.is_some() {
+            totp_list = State::get_device_info(solo2.as_mut().unwrap());
+        }
+        OathState {
+           totp_list: totp_list,
+           label_input: "".to_string(),
+           secret_input: "".to_string(),
+           deleting_totp: "".to_string(),
+           invalid_totp_code_length: false,
+           adding_totp: false,
+        }
+    }
+}
+
+pub struct State {
+    pub panes: pane_grid::State<Pane>,
+    pub content: Content,
+    pub solo2: Option<solo2::Solo2>,
+    pub oath_state: OathState,
 }
 
 impl State {
@@ -39,25 +59,15 @@ impl State {
             .split(Axis::Vertical, *first_pane, Pane::Content)
             .expect("Could not split panegrid.");
         pane_grid_state.resize(split, 0.3);
-
         let mut solo2_device = State::get_device();
-        let mut totp_list: Vec<(String, String)> = vec![];
 
-        if solo2_device.is_some() {
-            totp_list = State::get_device_info(solo2_device.as_mut().unwrap());
-        }
 
         let state = State {
             panes: pane_grid_state,
             content: Content::Oath,
-            adding_totp: false,
-            label_input: "".to_string(),
-            secret_input: "".to_string(),
+            oath_state: OathState::new(&mut solo2_device),                
             solo2: solo2_device,
-            totp_list: totp_list,
-            deleting_totp: "".to_string(),
-            invalid_totp_code_length: false,
-        };
+                    };
         state
     }
     pub fn update_devices(&mut self) {
@@ -65,7 +75,7 @@ impl State {
         self.solo2 = Option::None;
         self.solo2 = Self::get_device();
         if self.solo2.is_some() {
-            self.totp_list = Self::get_device_info(self.solo2.as_mut().unwrap());
+            self.oath_state.totp_list = Self::get_device_info(self.solo2.as_mut().unwrap());
         }
     }
     fn get_device() -> Option<solo2::Solo2> {

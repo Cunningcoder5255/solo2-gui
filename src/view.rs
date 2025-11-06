@@ -46,7 +46,7 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
     // Vector to push elements to
     let mut oath_labels: Vec<iced::Element<Message>> = vec![];
 
-    let totp_list = &state.totp_list;
+    let totp_list = &state.oath_state.totp_list;
 
     // How much time a totp code has left before expiring
     let totp_lifetime = (30
@@ -101,7 +101,7 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
         .padding(10)
         .into();
 
-        if state.deleting_totp == *label {
+        if state.oath_state.deleting_totp == *label {
             totp_widget = container(iced::widget::column![totp_widget, delete_button])
                 .style(container::rounded_box)
                 .into();
@@ -110,11 +110,11 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
     }
 
     // Draw content for adding a TOTP code
-    if state.adding_totp {
-        let label_input: iced::Element<Message> = text_input("Label", &state.label_input)
+    if state.oath_state.adding_totp {
+        let label_input: iced::Element<Message> = text_input("Label", &state.oath_state.label_input)
             .on_input(Message::UpdateLabelInput)
             .into();
-        let secret_input: iced::Element<Message> = text_input("Secret Code", &state.secret_input)
+        let secret_input: iced::Element<Message> = text_input("Secret Code", &state.oath_state.secret_input)
             .on_input(Message::UpdateSecretInput)
             .into();
         let add_button: iced::Element<Message> = button(center("Add Code").height(Shrink))
@@ -137,7 +137,7 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
         .into();
 
         // Add invalid totp code length error message if necessary
-        if state.invalid_totp_code_length {
+        if state.oath_state.invalid_totp_code_length {
             adding_totp_widgets =
                 iced::widget::column![adding_totp_widgets, invalid_secret_text].into();
         }

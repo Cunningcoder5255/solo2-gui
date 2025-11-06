@@ -12,18 +12,18 @@ impl State {
                 iced::Task::none()
             }
             Message::CancelAddingTOTP => {
-                state.adding_totp = false;
-                state.invalid_totp_code_length = false;
-                state.label_input = "".to_string();
-                state.secret_input = "".to_string();
+                state.oath_state.adding_totp = false;
+                state.oath_state.invalid_totp_code_length = false;
+                state.oath_state.label_input = "".to_string();
+                state.oath_state.secret_input = "".to_string();
                 iced::Task::none()
             }
             Message::UpdateLabelInput(label) => {
-                state.label_input = label;
+                state.oath_state.label_input = label;
                 iced::Task::none()
             }
             Message::UpdateSecretInput(secret) => {
-                state.secret_input = secret;
+                state.oath_state.secret_input = secret;
                 iced::Task::none()
             }
             Message::OathTOTPLifeRefresh(_instant) => {
@@ -31,29 +31,29 @@ impl State {
                 iced::Task::none()
             }
             Message::AddTOTP => {
-                if state.secret_input.len() != 16 {
-                    state.invalid_totp_code_length = true;
+                if state.oath_state.secret_input.len() != 16 {
+                    state.oath_state.invalid_totp_code_length = true;
                     return iced::Task::none();
                 }
-                state.invalid_totp_code_length = false;
+                state.oath_state.invalid_totp_code_length = false;
                 let solo2 = state.solo2.as_mut().unwrap(); // Can unwrap because totp screen won't be shown if there are no devices
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
 
                 app.register(
                     solo2::apps::oath::Credential::default_totp(
-                        &state.label_input,
-                        &state.secret_input,
+                        &state.oath_state.label_input,
+                        &state.oath_state.secret_input,
                     )
                     .expect("Could not get credential"),
                 )
                 .expect("Could not register TOTP code.");
-                state.adding_totp = false;
+                state.oath_state.adding_totp = false;
                 state.update_devices();
                 iced::Task::none()
             }
             Message::AddTOTPScreen => {
-                state.deleting_totp = "".to_string();
-                state.adding_totp = true;
+                state.oath_state.deleting_totp = "".to_string();
+                state.oath_state.adding_totp = true;
                 iced::Task::none()
             }
             Message::TOTPLabelPress(label) => {
@@ -65,10 +65,10 @@ impl State {
                 );
 
                 // Functionality to toggle deleting totp button
-                if state.deleting_totp == label {
-                    state.deleting_totp = "".to_string();
+                if state.oath_state.deleting_totp == label {
+                    state.oath_state.deleting_totp = "".to_string();
                 } else {
-                    state.deleting_totp = label;
+                    state.oath_state.deleting_totp = label;
                 }
                 task
             }
@@ -76,6 +76,8 @@ impl State {
                 let solo2 = state.solo2.as_mut().unwrap();
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
                 app.delete(label).expect("Could not delete TOTP.");
+                state.oath_state.secret_input = "".to_string();
+                state.oath_state.label_input = "".to_string();
                 state.update_devices();
                 iced::Task::none()
             }
