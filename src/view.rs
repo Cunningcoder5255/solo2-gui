@@ -5,8 +5,13 @@ extern crate iced;
 extern crate solo2;
 use iced::{
     Element, Fill, Shrink, alignment,
-    widget::{self, button, center, container, pane_grid, row, scrollable, svg, text, text_input},
+    widget::{
+        self, button, center, container, horizontal_rule, pane_grid, row, scrollable, svg, text,
+        text_input,
+    },
 };
+
+const SPACING: u16 = 10;
 
 impl State {
     // Code concerned with displaying the state and returning messages (showing UI and responding to interaction)
@@ -31,7 +36,7 @@ impl State {
                 }
             })
         });
-        container(pane_grid.spacing(10))
+        container(pane_grid.spacing(SPACING))
             .width(Fill)
             .height(Fill)
             .padding(10)
@@ -105,7 +110,7 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
                     .width(Shrink)
                     .height(Fill)
             ]
-            .spacing(10)
+            .spacing(SPACING)
             .height(Shrink),
         )
         .on_press(Message::TOTPLabelPress(label.clone()))
@@ -121,6 +126,8 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
         oath_labels.push(totp_widget);
     }
 
+    // Add horizontal rule to separate add button/add screen
+    oath_labels.push(horizontal_rule(4).into());
     // Draw content for adding a TOTP code
     if state.oath_state.adding_totp {
         let label_input: iced::Element<Message> =
@@ -144,10 +151,10 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .align_x(alignment::Horizontal::Center)
             .into();
         let mut adding_totp_widgets = iced::widget::column![
-            row![label_input, secret_input].spacing(10),
-            row![cancel_button, add_button].spacing(10)
+            row![label_input, secret_input].spacing(SPACING),
+            row![cancel_button, add_button].spacing(SPACING)
         ]
-        .spacing(10)
+        .spacing(SPACING)
         .into();
 
         // Add invalid totp code length error message if necessary
@@ -158,17 +165,18 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
         oath_labels.push(adding_totp_widgets);
         // Draw "+" button to start adding a TOTP code
     } else {
-        let add_totp_button = button(center(text("+").size(32)).height(Shrink))
-            .on_press(Message::AddTOTPScreen)
-            .width(Fill)
-            .style(button::secondary)
-            .padding(10)
-            .into();
+        let add_totp_button: iced::Element<Message> =
+            button(center(text("+").size(32)).height(Shrink))
+                .on_press(Message::AddTOTPScreen)
+                .width(Fill)
+                .style(button::secondary)
+                .padding(10)
+                .into();
         oath_labels.push(add_totp_button);
     }
     scrollable(
         iced::widget::Column::with_children(oath_labels)
-            .spacing(10)
+            .spacing(SPACING)
             .width(Fill),
     )
     .into()
