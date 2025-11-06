@@ -47,6 +47,9 @@ impl State {
                     .expect("Could not get credential"),
                 )
                 .expect("Could not register TOTP code.");
+                // Clear inputs and get out of adding_totp screen
+                state.oath_state.label_input = "".to_string();
+                state.oath_state.secret_input = "".to_string();
                 state.oath_state.adding_totp = false;
                 state.update_devices();
                 iced::Task::none()
@@ -65,7 +68,6 @@ impl State {
                 )
             }
             Message::TOTPLabelPress(label) => {
-
                 // Functionality to toggle deleting totp button
                 if state.oath_state.deleting_totp == label {
                     state.oath_state.deleting_totp = "".to_string();

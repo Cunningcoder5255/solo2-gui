@@ -5,7 +5,7 @@ extern crate iced;
 extern crate solo2;
 use iced::{
     Element, Fill, Shrink, alignment,
-    widget::{self, svg, button, center, container, pane_grid, row, text, text_input},
+    widget::{self, button, center, container, pane_grid, row, scrollable, svg, text, text_input},
 };
 
 impl State {
@@ -63,21 +63,29 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .height(Fill)
             .size(24)
             .align_y(alignment::Vertical::Center);
-        let totp_text: iced::Element<Message> = center(text(totp_code).size(32))
-            .width(Shrink)
-            .into();
+        let totp_text: iced::Element<Message> =
+            center(text(totp_code).size(32)).width(Shrink).into();
         let totp_lifetime_bar = widget::progress_bar(0.00..=30.0, totp_lifetime)
-            .width(40)
+            .width(60)
             .height(Fill);
         let totp_lifetime_text = text(totp_lifetime)
-            .width(40)
+            .width(60)
+            .size(24)
             .height(Fill)
             .align_x(alignment::Horizontal::Center)
             .align_y(alignment::Vertical::Center);
-        let totp_copy_button: iced::Element<Message> = button(
-                svg("svg/copy.svg").width(Shrink))
-            .style(button::secondary).width(Shrink).on_press(Message::CopyTOTP(label.clone()))
-        .into();
+        // Source - https://stackoverflow.com/a
+        // Posted by Jack Baldwin
+        // Retrieved 2025-11-06, License - CC BY-SA 4.0
+        // Include svg into application
+
+        let copy_svg = svg::Handle::from_memory(include_bytes!("../svg/copy.svg").as_slice());
+
+        let totp_copy_button: iced::Element<Message> = button(svg(copy_svg).width(Shrink))
+            .width(Shrink)
+            .on_press(Message::CopyTOTP(label.clone()))
+            .style(button::secondary)
+            .into();
         let delete_button: iced::Element<Message> = button(
             text("Delete")
                 .align_x(alignment::Horizontal::Center)
@@ -115,12 +123,14 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
 
     // Draw content for adding a TOTP code
     if state.oath_state.adding_totp {
-        let label_input: iced::Element<Message> = text_input("Label", &state.oath_state.label_input)
-            .on_input(Message::UpdateLabelInput)
-            .into();
-        let secret_input: iced::Element<Message> = text_input("Secret Code", &state.oath_state.secret_input)
-            .on_input(Message::UpdateSecretInput)
-            .into();
+        let label_input: iced::Element<Message> =
+            text_input("Label", &state.oath_state.label_input)
+                .on_input(Message::UpdateLabelInput)
+                .into();
+        let secret_input: iced::Element<Message> =
+            text_input("Secret Code", &state.oath_state.secret_input)
+                .on_input(Message::UpdateSecretInput)
+                .into();
         let add_button: iced::Element<Message> = button(center("Add Code").height(Shrink))
             .on_press(Message::AddTOTP)
             .width(Fill)
@@ -156,8 +166,10 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .into();
         oath_labels.push(add_totp_button);
     }
-    iced::widget::Column::with_children(oath_labels)
-        .spacing(10)
-        .width(Fill)
-        .into()
+    scrollable(
+        iced::widget::Column::with_children(oath_labels)
+            .spacing(10)
+            .width(Fill),
+    )
+    .into()
 }

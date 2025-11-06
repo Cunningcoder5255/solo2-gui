@@ -30,12 +30,12 @@ impl OathState {
             totp_list = State::get_device_info(solo2.as_mut().unwrap());
         }
         OathState {
-           totp_list: totp_list,
-           label_input: "".to_string(),
-           secret_input: "".to_string(),
-           deleting_totp: "".to_string(),
-           invalid_totp_code_length: false,
-           adding_totp: false,
+            totp_list: totp_list,
+            label_input: "".to_string(),
+            secret_input: "".to_string(),
+            deleting_totp: "".to_string(),
+            invalid_totp_code_length: false,
+            adding_totp: false,
         }
     }
 }
@@ -61,13 +61,12 @@ impl State {
         pane_grid_state.resize(split, 0.3);
         let mut solo2_device = State::get_device();
 
-
         let state = State {
             panes: pane_grid_state,
             content: Content::Oath,
-            oath_state: OathState::new(&mut solo2_device),                
+            oath_state: OathState::new(&mut solo2_device),
             solo2: solo2_device,
-                    };
+        };
         state
     }
     pub fn update_devices(&mut self) {
