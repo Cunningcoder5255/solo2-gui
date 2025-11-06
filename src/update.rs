@@ -56,13 +56,15 @@ impl State {
                 state.oath_state.adding_totp = true;
                 iced::Task::none()
             }
-            Message::TOTPLabelPress(label) => {
+            Message::CopyTOTP(label) => {
                 let solo2 = state.solo2.as_mut().unwrap();
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
-                let task = iced::clipboard::write::<Message>(
+                iced::clipboard::write::<Message>(
                     app.authenticate(solo2::apps::oath::Authenticate::with_label(&label))
                         .expect("No TOTP with label: {label}"),
-                );
+                )
+            }
+            Message::TOTPLabelPress(label) => {
 
                 // Functionality to toggle deleting totp button
                 if state.oath_state.deleting_totp == label {
@@ -70,7 +72,7 @@ impl State {
                 } else {
                     state.oath_state.deleting_totp = label;
                 }
-                task
+                iced::Task::none()
             }
             Message::DeleteTOTP(label) => {
                 let solo2 = state.solo2.as_mut().unwrap();

@@ -5,7 +5,7 @@ extern crate iced;
 extern crate solo2;
 use iced::{
     Element, Fill, Shrink, alignment,
-    widget::{self, button, center, container, pane_grid, row, text, text_input},
+    widget::{self, svg, button, center, container, pane_grid, row, text, text_input},
 };
 
 impl State {
@@ -65,7 +65,6 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .align_y(alignment::Vertical::Center);
         let totp_text: iced::Element<Message> = center(text(totp_code).size(32))
             .width(Shrink)
-            .height(Shrink)
             .into();
         let totp_lifetime_bar = widget::progress_bar(0.00..=30.0, totp_lifetime)
             .width(40)
@@ -75,6 +74,10 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
             .height(Fill)
             .align_x(alignment::Horizontal::Center)
             .align_y(alignment::Vertical::Center);
+        let totp_copy_button: iced::Element<Message> = button(
+                svg("svg/copy.svg").width(Shrink))
+            .style(button::secondary).width(Shrink).on_press(Message::CopyTOTP(label.clone()))
+        .into();
         let delete_button: iced::Element<Message> = button(
             text("Delete")
                 .align_x(alignment::Horizontal::Center)
@@ -88,6 +91,7 @@ fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
         let mut totp_widget: iced::Element<Message> = button(
             row![
                 totp_label,
+                totp_copy_button,
                 totp_text,
                 widget::stack![totp_lifetime_bar, totp_lifetime_text]
                     .width(Shrink)

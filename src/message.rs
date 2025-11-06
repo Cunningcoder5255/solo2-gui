@@ -4,6 +4,7 @@ use iced::time::Instant;
 pub enum Message {
     OathButtonPress,
     TOTPLabelPress(String /* Label */),
+    CopyTOTP(String /* Label */),
     OathTOTPLifeRefresh(Instant),
     AddTOTPScreen,
     AddTOTP,
