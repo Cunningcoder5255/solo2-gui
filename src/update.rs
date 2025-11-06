@@ -2,13 +2,23 @@ use crate::message::Message;
 use crate::state::State;
 extern crate solo2;
 use crate::state::Content;
-use solo2::{Select, apps::Oath};
+use solo2::{Admin, Select, apps::Oath};
 
 impl State {
     pub fn update(state: &mut State, message: Message) -> iced::Task<Message> {
         match message {
+            Message::Wink => {
+                let mut admin_app = Admin::select(state.solo2.as_mut().unwrap())
+                    .expect("Could not enter admin app:");
+                let _ = admin_app.wink();
+                iced::Task::none()
+            }
             Message::OathButtonPress => {
                 state.content = Content::Oath;
+                iced::Task::none()
+            }
+            Message::AdminButtonPress => {
+                state.content = Content::Admin;
                 iced::Task::none()
             }
             Message::CancelAddingTOTP => {
@@ -30,10 +40,7 @@ impl State {
                 state.update_devices();
                 iced::Task::none()
             }
-            Message::OathTOTPLifeRefresh(_instant) => {
-                state.content = Content::Oath;
-                iced::Task::none()
-            }
+            Message::OathTOTPLifeRefresh(_instant) => iced::Task::none(),
             Message::AddTOTP => {
                 if state.oath_state.secret_input.len() != 16 {
                     state.oath_state.invalid_totp_code_length = true;

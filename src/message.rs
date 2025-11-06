@@ -2,6 +2,8 @@ use iced::time::Instant;
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Wink,
+    AdminButtonPress,
     ReloadDevices,
     OathButtonPress,
     TOTPLabelPress(String /* Label */),

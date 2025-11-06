@@ -1,7 +1,7 @@
 use iced::widget::pane_grid::{self, Axis};
 use solo2::Select;
 use solo2::UuidSelectable;
-use solo2::apps::{Oath, oath};
+use solo2::apps::{Admin, Oath, oath};
 
 pub enum Pane {
     // Shows solo2 apps like fido and oath
@@ -13,6 +13,7 @@ pub enum Pane {
 #[derive(Debug)]
 pub enum Content {
     Oath,
+    Admin,
 }
 
 pub struct OathState {
@@ -40,11 +41,37 @@ impl OathState {
     }
 }
 
+pub struct AdminState {
+    pub locked: bool,
+    pub uuid: String,
+    pub version: String,
+}
+
+impl AdminState {
+    pub fn new(solo2: &mut Option<solo2::Solo2>) -> Self {
+        let mut admin_app =
+            Admin::select(solo2.as_mut().unwrap()).expect("Could not enter admin app:");
+
+        let locked = admin_app
+            .locked()
+            .expect("Could not find out if device was locked:");
+        let uuid = solo2.as_ref().unwrap().uuid().simple().to_string();
+        let version = solo2.as_ref().unwrap().version().to_semver();
+
+        AdminState {
+            locked: locked,
+            uuid: uuid,
+            version: version,
+        }
+    }
+}
+
 pub struct State {
     pub panes: pane_grid::State<Pane>,
     pub content: Content,
     pub solo2: Option<solo2::Solo2>,
     pub oath_state: OathState,
+    pub admin_state: AdminState,
 }
 
 impl State {
@@ -65,6 +92,7 @@ impl State {
             panes: pane_grid_state,
             content: Content::Oath,
             oath_state: OathState::new(&mut solo2_device),
+            admin_state: AdminState::new(&mut solo2_device),
             solo2: solo2_device,
         };
         state
