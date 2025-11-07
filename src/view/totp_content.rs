@@ -11,17 +11,6 @@ use iced::widget::{
 };
 
 pub fn draw_totp_content<'a>(state: &'a State) -> iced::Element<'a, Message> {
-    let copy_svg = svg::Handle::from_memory(include_bytes!("../../svg/reload.svg").as_slice());
-    if state.solo2.is_none() {
-        return row![
-            text("No solo2 device.").size(32),
-            button(svg(copy_svg).width(32).height(32))
-                .width(Shrink)
-                .on_press(Message::ReloadDevices)
-        ]
-        .spacing(SPACING)
-        .into();
-    }
     // Vector to push elements to
     let mut oath_labels: Vec<iced::Element<Message>> = vec![];
 

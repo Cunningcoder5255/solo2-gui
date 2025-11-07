@@ -5,8 +5,8 @@ use crate::state::{Content, Pane, State};
 extern crate iced;
 extern crate solo2;
 use iced::{
-    Element, Fill,
-    widget::{self, button, container, pane_grid, text},
+    Element, Fill, Shrink,
+    widget::{self, button, container, pane_grid, row, svg, text},
 };
 
 pub const SPACING: u16 = 10;
@@ -31,6 +31,22 @@ impl State {
                 .style(container::rounded_box)
                 .into(),
                 Pane::Content => {
+                    // Early return the reload screne if there is no device
+                    if self.solo2.is_none() {
+                        let reload_svg = svg::Handle::from_memory(
+                            include_bytes!("../svg/reload.svg").as_slice(),
+                        );
+                        return row![
+                            text("No solo2 device.").size(32),
+                            button(svg(reload_svg).width(32).height(32))
+                                .width(Shrink)
+                                .on_press(Message::ReloadDevices)
+                        ]
+                        .spacing(SPACING)
+                        .into();
+                    }
+
+                    // Otherwise, draw content according to the screen we are on
                     match &self.content {
                         // Content for Oath app
                         Content::Oath => totp_content::draw_totp_content(self),

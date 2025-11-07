@@ -49,14 +49,20 @@ pub struct AdminState {
 
 impl AdminState {
     pub fn new(solo2: &mut Option<solo2::Solo2>) -> Self {
-        let mut admin_app =
-            Admin::select(solo2.as_mut().unwrap()).expect("Could not enter admin app:");
+        let mut uuid = "".to_string();
+        let mut version = "".to_string();
+        let mut locked = false;
 
-        let locked = admin_app
-            .locked()
-            .expect("Could not find out if device was locked:");
-        let uuid = solo2.as_ref().unwrap().uuid().simple().to_string();
-        let version = solo2.as_ref().unwrap().version().to_semver();
+        if solo2.is_some() {
+            let mut admin_app =
+                Admin::select(solo2.as_mut().unwrap()).expect("Could not enter admin app:");
+
+            locked = admin_app
+                .locked()
+                .expect("Could not find out if device was locked:");
+            uuid = solo2.as_ref().unwrap().uuid().simple().to_string();
+            version = solo2.as_ref().unwrap().version().to_semver();
+        }
 
         AdminState {
             locked: locked,
