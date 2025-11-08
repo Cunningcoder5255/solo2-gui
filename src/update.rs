@@ -2,6 +2,7 @@ use crate::message::Message;
 use crate::state::State;
 extern crate solo2;
 use crate::state::Content;
+use cosmic::iced;
 use solo2::{Admin, Select, apps::Oath};
 
 impl State {
@@ -13,12 +14,10 @@ impl State {
                 let _ = admin_app.wink();
                 iced::Task::none()
             }
-            Message::OathButtonPress => {
-                state.content = Content::Oath;
-                iced::Task::none()
-            }
-            Message::AdminButtonPress => {
-                state.content = Content::Admin;
+            Message::SidebarButtonPress(id) => {
+                if let Some(text) = state.sidebar.data::<String>(id) {
+                    state.content = Content::Oath;
+                }
                 iced::Task::none()
             }
             Message::CancelAddingTOTP => {

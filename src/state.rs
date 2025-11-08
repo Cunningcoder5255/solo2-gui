@@ -1,4 +1,6 @@
-use iced::widget::pane_grid::{self, Axis};
+use crate::view::view;
+use cosmic::iced::widget::pane_grid::{self, Axis};
+use cosmic::widget;
 use solo2::Select;
 use solo2::UuidSelectable;
 use solo2::apps::{Admin, Oath, oath};
@@ -78,10 +80,15 @@ pub struct State {
     pub solo2: Option<solo2::Solo2>,
     pub oath_state: OathState,
     pub admin_state: AdminState,
+    core: cosmic::core::Core,
+    pub sidebar: widget::nav_bar::Model,
 }
 
-impl State {
-    pub fn new() -> Self {
+impl cosmic::Application for State {
+    fn init(
+        core: cosmic::Core,
+        flags: Self::Flags,
+    ) -> (Self, cosmic::Task<cosmic::Action<Self::Message>>) {
         // Set up pane split
         let (mut pane_grid_state, _) = pane_grid::State::new(Pane::AppList);
         let (first_pane, _) = pane_grid_state
@@ -94,15 +101,47 @@ impl State {
         pane_grid_state.resize(split, 0.3);
         let mut solo2_device = State::get_device();
 
+        let mut sidebar_model = widget::nav_bar::Model::default();
+        sidebar_model.insert().text("Oath");
+        sidebar_model.insert().text("Admin");
+        sidebar_model.activate_position(0);
+
         let state = State {
             panes: pane_grid_state,
             content: Content::Oath,
             oath_state: OathState::new(&mut solo2_device),
             admin_state: AdminState::new(&mut solo2_device),
             solo2: solo2_device,
+            core: cosmic::core::Core::default(),
+            sidebar: sidebar_model,
         };
-        state
+        (state, cosmic::Task::none())
     }
+    fn view<'a>(&'a self) -> cosmic::iced::Element<'a, Self::Message, cosmic::Theme> {
+        view(&self)
+    }
+    fn core(&self) -> &cosmic::core::Core {
+        &self.core
+    }
+    fn core_mut(&mut self) -> &mut cosmic::core::Core {
+        &mut self.core
+    }
+    const APP_ID: &'static str = "com.solo2-gui.solo2-gui";
+    type Message = crate::Message;
+    type Flags = Vec<(Content, String)>;
+    type Executor = cosmic::executor::Default;
+}
+impl State {
+    // Nav bar stuff
+    fn nav_model(&self) -> Option<&widget::nav_bar::Model> {
+        Some(&self.sidebar)
+    }
+
+    /// Called when a navigation item is selected.
+    fn on_nav_select(&mut self, id: widget::nav_bar::Id) {
+        self.sidebar.activate(id);
+    }
+
     pub fn update_devices(&mut self) {
         // Get rid of solo2 device to ensure connection to device is broken so it will be reset when the smart card state is refreshed, like when adding or deleting a key
         self.solo2 = Option::None;
@@ -146,8 +185,8 @@ impl State {
     }
 }
 
-impl Default for State {
-    fn default() -> Self {
-        State::new()
-    }
-}
+// impl Default for State {
+//     fn default() -> Self {
+//         State::init()
+//     }
+// }

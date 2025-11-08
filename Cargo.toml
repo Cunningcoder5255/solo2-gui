@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { version = "0.13.1", features = ["tokio", "svg"] }
+# iced = { version = "0.13.1", features = ["tokio", "svg"] }
 solo2 = "0.2.2"
+
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic" 
+default-features = false
+
+features = [
+"winit", "wayland", "wgpu", "tokio", "single-instance"]
+
 
 [profile.release]
 lto = "thin"

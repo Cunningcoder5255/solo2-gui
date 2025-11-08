@@ -1,11 +1,11 @@
-use iced::time::Instant;
+use cosmic::iced::time::Instant;
+use cosmic::widget::segmented_button;
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Wink,
-    AdminButtonPress,
+    SidebarButtonPress(segmented_button::Entity),
     ReloadDevices,
-    OathButtonPress,
     TOTPLabelPress(String /* Label */),
     CopyTOTP(String /* Label */),
     OathTOTPLifeRefresh(Instant),

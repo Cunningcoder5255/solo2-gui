@@ -1,6 +1,6 @@
 use crate::Message;
 use crate::State;
-use iced::{
+use cosmic::iced::{
     Subscription,
     time::{self, Duration},
 };

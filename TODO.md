@@ -4,4 +4,6 @@
   - !DONE! Find way to extract device fetching from view and update functions and store it so it isn't unecessarily repeated
 - [X] Add way to delete TOTP codes
 - [X] Add refresh button
-- [ ] Implement other solo2 cmd apps
+- [X] Implement other solo2 cmd apps
+- [ ] Move to libcosmic
+  - Rewrite view code ;-;
