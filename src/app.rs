@@ -2,7 +2,6 @@
 
 extern crate solo2;
 use crate::config::Config;
-use crate::fl;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::theme;
@@ -44,15 +43,23 @@ pub struct AppModel {
     secret_input: String,
     /// If the input secret was not 16 characters (to present an error message)
     invalid_totp_code_length: bool,
+    /// The TOTP we asking to confirm deletion of, "" if none
+    deleting_totp: Option<String>,
 }
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
 pub enum Message {
+    // Cancel deleting a TOTP code
+    CancelDeleteTOTP,
     // Delete totp code with specified label
     DeleteTOTP(String),
+    // Prompt if the user is really sure they want to delete the TOTP code with label String
+    PromptDeleteTOTP(String),
     // Update TOTP Lifespan display every second
     RefreshTOTPLifespan,
+    // Copy a TOTP code to clipboard
+    CopyTOTP(String),
     AddTOTPButton,
     CancelAddTOTP,
     AddTOTPCode,
@@ -125,6 +132,7 @@ impl cosmic::Application for AppModel {
             adding_totp: false,
             label_input: "".to_string(),
             secret_input: "".to_string(),
+            deleting_totp: None,
             invalid_totp_code_length: false,
             nav,
             // key_binds: HashMap::new(),
@@ -215,22 +223,38 @@ impl cosmic::Application for AppModel {
                     let delete_svg = widget::svg::Handle::from_memory(
                         include_bytes!("../svg/trash.svg").as_slice(),
                     );
-                    let totp_delete_button: cosmic::Element<Message> =
-                        widget::button::custom(widget::svg(delete_svg))
-                            .on_press(Message::DeleteTOTP(label.clone()))
-                            .class(cosmic::theme::Button::Destructive)
-                            .width(Length::FillPortion(1))
+                    let totp_delete_button: cosmic::Element<Message> = widget::container(
+                        widget::button::custom(
+                            widget::container(widget::svg(delete_svg).width(Length::Shrink))
+                                .center_y(Length::Shrink)
+                                .width(Length::Shrink),
+                        )
+                        .on_press(Message::PromptDeleteTOTP(label.clone()))
+                        .class(cosmic::theme::Button::Destructive)
+                        .width(Length::Shrink)
+                        .height(Length::Fill),
+                    )
+                    .center_y(Length::Shrink)
+                    .width(Length::Shrink)
+                    .into();
+                    let totp_label_text = widget::text::title2(label)
+                        .height(Length::Fill)
+                        .align_y(Alignment::Center)
+                        .width(Length::Shrink);
+                    let copy_svg = widget::svg::Handle::from_memory(
+                        include_bytes!("../svg/copy.svg").as_slice(),
+                    );
+                    let copy_totp_button: cosmic::Element<Message> =
+                        widget::button::custom(widget::svg(copy_svg).width(Length::Shrink))
+                            .width(Length::Shrink)
+                            .height(Length::Shrink)
+                            .on_press(Message::CopyTOTP(label.clone()))
                             .into();
                     let totp_code_text = widget::text::title1(totp_code)
-                        .width(Length::FillPortion(12))
+                        .width(Length::Shrink)
                         .height(Length::Fill)
                         .align_y(Alignment::Center)
                         .align_x(Alignment::End);
-                    let totp_label_text = widget::text::title2(label)
-                        .width(Length::FillPortion(4))
-                        .height(Length::Fill)
-                        .align_y(Alignment::Center)
-                        .width(Length::Fill);
                     let totp_lifetime_stack: cosmic::Element<Message> = widget::container(
                         cosmic::iced::widget::stack!(
                             cosmic::widget::progress_bar(-5.0..=30.0, totp_lifetime)
@@ -242,15 +266,27 @@ impl cosmic::Application for AppModel {
                         )
                         .height(Length::Fill),
                     )
-                    .width(Length::FillPortion(4))
+                    .width(40)
                     .height(Length::Fill)
                     .into();
                     let totp_container: cosmic::Element<Message> = cosmic::widget::Container::new(
-                        widget::row::with_capacity(4)
-                            .push(totp_delete_button)
-                            .push(totp_label_text)
-                            .push(totp_code_text)
-                            .push(totp_lifetime_stack)
+                        widget::row::with_capacity(2)
+                            .push(widget::container(
+                                widget::row::with_capacity(2)
+                                    .push(totp_delete_button)
+                                    .push(totp_label_text)
+                                    .spacing(padding),
+                            ))
+                            .push(
+                                widget::container(
+                                    widget::row::with_capacity(3)
+                                        .push(copy_totp_button)
+                                        .push(totp_code_text)
+                                        .push(totp_lifetime_stack)
+                                        .spacing(padding),
+                                )
+                                .align_right(Length::Fill),
+                            )
                             .spacing(padding),
                     )
                     .padding(padding)
@@ -270,13 +306,20 @@ impl cosmic::Application for AppModel {
                 totp_containers.push(divider);
 
                 if self.adding_totp {
+                    let mut invalid_totp_dialog = widget::text("");
+                    if self.invalid_totp_code_length {
+                        invalid_totp_dialog =
+                            widget::text("Secret length should be 16 characters.");
+                    }
                     let label_input = widget::text_input("Label", self.label_input.clone())
                         .on_input(Message::UpdateLabelInput);
                     let secret_input = widget::text_input("Secret", self.secret_input.clone())
                         .on_input(Message::UpdateSecretInput);
-                    let add_button = widget::button::text("Add").on_press(Message::AddTOTPCode);
+                    let add_button = widget::button::text("Add")
+                        .on_press(Message::AddTOTPCode)
+                        .class(cosmic::theme::Button::Suggested);
                     let cancel_button =
-                        widget::button::destructive("Cancel").on_press(Message::CancelAddTOTP);
+                        widget::button::text("Cancel").on_press(Message::CancelAddTOTP);
                     let adding_totp_widget: cosmic::Element<Message> =
                         widget::column::with_capacity(2)
                             .push(
@@ -291,7 +334,8 @@ impl cosmic::Application for AppModel {
                             )
                             .push(
                                 widget::container(
-                                    widget::row::with_capacity(2)
+                                    widget::row::with_capacity(3)
+                                        .push(invalid_totp_dialog)
                                         .push(cancel_button)
                                         .push(add_button)
                                         .spacing(padding),
@@ -312,11 +356,46 @@ impl cosmic::Application for AppModel {
                             .into();
                     totp_containers.push(totp_add_button);
                 }
+                let dialog: cosmic::Element<Message>;
 
-                widget::column::with_children(totp_containers)
-                    .spacing(padding)
-                    .width(Length::Fill)
-                    .into()
+                if self.deleting_totp.is_some() {
+                    let confirmation_text = "Are you sure you want to delete TOTP code \""
+                        .to_string()
+                        + &self.deleting_totp.clone().unwrap()
+                        + "\"?";
+                    let cancel_button: cosmic::Element<Message> = widget::button::text("Cancel")
+                        .on_press(Message::CancelDeleteTOTP)
+                        .into();
+                    let delete_button: cosmic::Element<Message> =
+                        widget::button::destructive("Delete")
+                            .on_press(Message::DeleteTOTP(self.deleting_totp.clone().unwrap()))
+                            .into();
+
+                    dialog = cosmic::widget::dialog()
+                        .title("Confirm Deletion")
+                        .body(confirmation_text)
+                        .primary_action(cancel_button)
+                        .secondary_action(delete_button)
+                        .into();
+                } else {
+                    dialog = widget::text("").into()
+                }
+
+                widget::container(cosmic::iced::widget::stack![
+                    widget::column::with_children(totp_containers)
+                        .spacing(padding)
+                        .width(Length::Fill),
+                    widget::container(dialog)
+                        .height(Length::Fill)
+                        .center(Length::Fill)
+                ])
+                .width(1000)
+                .height(Length::Fill)
+                .apply(widget::container)
+                .width(Length::Fill)
+                .align_x(Alignment::Center)
+                .align_y(Alignment::Center)
+                .into()
             }
         }
     }
@@ -366,19 +445,33 @@ impl cosmic::Application for AppModel {
     /// Tasks may be returned for asynchronous execution of code in the background
     /// on the application's async runtime.
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
+        let mut task: Option<cosmic::Task<cosmic::Action<Message>>> = None;
         match message {
+            Message::CopyTOTP(label) => {
+                let solo2 = self.solo2.as_mut().unwrap();
+                let mut app = Oath::select(solo2).expect("Could not enter oath app.");
+                task = Some(cosmic::iced::clipboard::write::<cosmic::Action<Message>>(
+                    app.authenticate(solo2::apps::oath::Authenticate::with_label(&label))
+                        .expect("No TOTP with label: {label}"),
+                ));
+            }
             Message::RefreshTOTPLifespan => (),
+            Message::PromptDeleteTOTP(label) => self.deleting_totp = Some(label),
+            Message::CancelDeleteTOTP => self.deleting_totp = None,
             Message::DeleteTOTP(label) => {
                 let solo2 = self.solo2.as_mut().unwrap();
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
                 app.delete(label).expect("Could not delete TOTP.");
-                self.secret_input = "".to_string();
-                self.label_input = "".to_string();
+                // Update TOTP list to reflect the deleted entry
                 self.update_devices();
+                // No longer prompting to delete TOTP code
+                self.deleting_totp = None;
             }
             Message::UpdateLabelInput(label) => self.label_input = label,
             Message::UpdateSecretInput(secret) => self.secret_input = secret,
-            Message::CancelAddTOTP => self.adding_totp = false,
+            Message::CancelAddTOTP => {
+                self.adding_totp = false;
+            }
             Message::AddTOTPCode => {
                 if self.secret_input.len() != 16 {
                     self.invalid_totp_code_length = true;
@@ -396,19 +489,23 @@ impl cosmic::Application for AppModel {
                     )
                     .expect("Could not register TOTP code.");
                     // Clear inputs and get out of adding_totp screen
-                    self.label_input = "".to_string();
-                    self.secret_input = "".to_string();
                     self.adding_totp = false;
                     self.update_devices();
                 }
             }
             Message::AddTOTPButton => {
+                // Get clean input state every time
+                self.secret_input = "".to_string();
+                self.label_input = "".to_string();
                 self.adding_totp = true;
             }
 
             Message::UpdateConfig(config) => {
                 self.config = config;
             }
+        }
+        if task.is_some() {
+            return task.unwrap();
         }
         Task::none()
     }
@@ -418,19 +515,14 @@ impl cosmic::Application for AppModel {
         // Activate the page in the model.
         self.nav.activate(id);
 
-        self.update_title()
+        cosmic::Task::none()
     }
 }
 
 impl AppModel {
     /// Updates the header and window titles.
     pub fn update_title(&mut self) -> Task<cosmic::Action<Message>> {
-        let mut window_title = fl!("app-title");
-
-        if let Some(page) = self.nav.text(self.nav.active()) {
-            window_title.push_str(" — ");
-            window_title.push_str(page);
-        }
+        let window_title = "Solo 2 GUI".to_string();
 
         if let Some(id) = self.core.main_window_id() {
             self.set_window_title(window_title, id)
