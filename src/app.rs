@@ -7,6 +7,7 @@ use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::{Alignment, Length, Subscription};
+use cosmic::theme;
 use cosmic::widget::{self, about::About, icon, menu, nav_bar};
 use cosmic::{iced_futures, prelude::*};
 use futures_util::SinkExt;
@@ -209,11 +210,17 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<'_, Self::Message> {
-        let space_s = cosmic::theme::spacing().space_s;
+        const PADDING: u16 = 20;
+        // let space_s = cosmic::theme::spacing().space_s;
         let content: Element<_> = match self.nav.active_data::<Page>().unwrap() {
             Page::Admin => widget::text("Admin page").into(),
 
             Page::Oath => {
+                // If there aren't any solo2 devices, tell the user and return early since there won't be any codes
+                if !&self.solo2.is_some() {
+                    return widget::text("No solo2 devices.").into();
+                }
+                // TODO: Add message when there are no totp codes
                 let mut totp_containers: Vec<cosmic::Element<Message>> = vec![];
                 let totp_list = &self.totp_list;
 
@@ -225,15 +232,60 @@ impl cosmic::Application for AppModel {
                         .as_secs()
                         % 30)) as f32;
 
+                // Loop over the totp info and add the label and code to a card and add the card to the totp_containers collection
                 for (label, totp_code) in totp_list.into_iter() {
-                    let totp_container: cosmic::Element<Message> = widget::row::with_capacity(2)
-                        .push(widget::text(label))
-                        .push(widget::text(totp_code))
-                        .into();
+                    let totp_code_text = widget::text::title1(totp_code)
+                        .width(Length::FillPortion(3))
+                        .height(Length::Fill)
+                        .align_y(Alignment::Center)
+                        .align_x(Alignment::End);
+                    let totp_label_text = widget::text::title2(label)
+                        .width(Length::FillPortion(1))
+                        .height(Length::Fill)
+                        .align_y(Alignment::Center)
+                        .width(Length::Fill);
+                    let totp_lifetime_stack: cosmic::Element<Message> = widget::container(
+                        cosmic::iced::widget::stack!(
+                            cosmic::widget::progress_bar(-5.0..=30.0, totp_lifetime)
+                                .height(Length::Fill),
+                            widget::text::title3(totp_lifetime.to_string())
+                                .center()
+                                .width(Length::Fill)
+                                .height(Length::Fill)
+                        )
+                        .height(Length::Fill),
+                    )
+                    .width(Length::FillPortion(1))
+                    .height(Length::Fill)
+                    .into();
+                    let totp_container: cosmic::Element<Message> = cosmic::widget::Container::new(
+                        widget::row::with_capacity(3)
+                            .push(totp_label_text)
+                            .push(totp_code_text)
+                            .push(totp_lifetime_stack)
+                            .spacing(PADDING),
+                    )
+                    .padding(PADDING)
+                    .height(PADDING * 4)
+                    .width(Length::Fill)
+                    .class(theme::Container::Card)
+                    .into();
+
                     totp_containers.push(totp_container);
                 }
 
-                widget::column::with_children(totp_containers).into()
+                let add_svg =
+                    widget::svg::Handle::from_memory(include_bytes!("../svg/add.svg").as_slice());
+                let totp_add_button: cosmic::Element<Message> =
+                    widget::button::custom(widget::svg(add_svg)).into();
+                let divider: cosmic::Element<Message> = widget::divider::horizontal::heavy().into();
+
+                totp_containers.push(divider);
+                totp_containers.push(totp_add_button);
+
+                widget::column::with_children(totp_containers)
+                    .width(Length::Fill)
+                    .into()
             }
         };
 
