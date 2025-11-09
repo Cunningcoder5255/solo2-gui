@@ -3,22 +3,19 @@
 extern crate solo2;
 use crate::config::Config;
 use crate::fl;
-use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
-use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::theme;
-use cosmic::widget::{self, about::About, icon, menu, nav_bar};
+use cosmic::widget::{self, icon, nav_bar};
 use cosmic::{iced_futures, prelude::*};
 use futures_util::SinkExt;
 use solo2::apps::{Oath, oath};
 use solo2::{Select, UuidSelectable};
-use std::collections::HashMap;
 use std::time::Duration;
 use std::time::SystemTime;
 
-const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
-const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
+// const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
+// const APP_ICON: &[u8] = include_bytes!("../svg/copy.svg"); // TODO: Add icon
 
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
@@ -35,23 +32,33 @@ pub struct AppModel {
     // key_binds: HashMap<menu::KeyBind, MenuAction>,
     /// Configuration data that persists between application runs.
     config: Config,
-    /// Time active
-    time: u32,
-    /// Toggle the watch subscription
-    watch_is_active: bool,
     /// List of TOTP codes and their respective labels
     totp_list: Vec<(String, String)>,
     /// The Solo2 device we are conected to
     solo2: Option<solo2::Solo2>,
+    /// Whether to show the widget for adding a totp code or the add button
+    adding_totp: bool,
+    /// The current content of the label input for the add totp widget
+    label_input: String,
+    /// The current content of the secret for the add totp widget
+    secret_input: String,
+    /// If the input secret was not 16 characters (to present an error message)
+    invalid_totp_code_length: bool,
 }
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
 pub enum Message {
-    LaunchUrl(String),
-    ToggleWatch,
+    // Delete totp code with specified label
+    DeleteTOTP(String),
+    // Update TOTP Lifespan display every second
+    RefreshTOTPLifespan,
+    AddTOTPButton,
+    CancelAddTOTP,
+    AddTOTPCode,
+    UpdateLabelInput(String),
+    UpdateSecretInput(String),
     UpdateConfig(Config),
-    WatchTick(u32),
 }
 
 /// Create a COSMIC application from the app model
@@ -94,42 +101,10 @@ impl cosmic::Application for AppModel {
             .text("Admin")
             .data::<Page>(Page::Admin)
             .icon(icon::from_name("applications-system-symbolic"));
-
-        // Set up device and totp_list fields
-        let mut solo2_device: Option<solo2::Solo2>;
-        let mut devices = solo2::Device::list();
-        // Just select first device
-        // Maybe add support for multiple devices later
-        // I can't test it though because I only have one
-        if devices.len() == 0 {
-            solo2_device = Option::None;
-        } else {
-            // Convert from Device type to Solo2 type
-            solo2_device = Option::Some(
-                devices
-                    .swap_remove(0)
-                    .into_solo2()
-                    .expect("Device is not a solo2 device."),
-            );
-        }
-
-        // List of totp codes with tuple (Label, TOTP code)
+        let mut solo2 = AppModel::get_device();
         let mut totp_list: Vec<(String, String)> = vec![];
-        if solo2_device.is_some() {
-            // Oath app
-            // Can unwrap device within is_some()
-            let mut app =
-                Oath::select(solo2_device.as_mut().unwrap()).expect("Could not enter OATH app:");
-            let app_list = app
-                .list()
-                .unwrap_or_else(|_| vec!["No TOTP codes.".to_string()]);
-
-            for label in app_list.iter() {
-                let totp_code = app
-                    .authenticate(oath::Authenticate::with_label(&label))
-                    .expect("No TOTP");
-                totp_list.push((label.to_string(), totp_code));
-            }
+        if solo2.is_some() {
+            totp_list = AppModel::get_device_info(solo2.as_mut().unwrap());
         }
 
         // Create the about widget
@@ -146,7 +121,11 @@ impl cosmic::Application for AppModel {
             // context_page: ContextPage::default(),
             // about,
             totp_list,
-            solo2: solo2_device,
+            solo2,
+            adding_totp: false,
+            label_input: "".to_string(),
+            secret_input: "".to_string(),
+            invalid_totp_code_length: false,
             nav,
             // key_binds: HashMap::new(),
             // Optional configuration file for an application.
@@ -162,8 +141,6 @@ impl cosmic::Application for AppModel {
                     }
                 })
                 .unwrap_or_default(),
-            time: 0,
-            watch_is_active: false,
         };
 
         // Create a startup command that sets the window title.
@@ -210,9 +187,10 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<'_, Self::Message> {
-        const PADDING: u16 = 20;
+        let padding: u16 = cosmic::theme::spacing().space_xs;
+        let xxxl_spacing: u16 = cosmic::theme::spacing().space_xxxl;
         // let space_s = cosmic::theme::spacing().space_s;
-        let content: Element<_> = match self.nav.active_data::<Page>().unwrap() {
+        match self.nav.active_data::<Page>().unwrap() {
             Page::Admin => widget::text("Admin page").into(),
 
             Page::Oath => {
@@ -234,13 +212,22 @@ impl cosmic::Application for AppModel {
 
                 // Loop over the totp info and add the label and code to a card and add the card to the totp_containers collection
                 for (label, totp_code) in totp_list.into_iter() {
+                    let delete_svg = widget::svg::Handle::from_memory(
+                        include_bytes!("../svg/trash.svg").as_slice(),
+                    );
+                    let totp_delete_button: cosmic::Element<Message> =
+                        widget::button::custom(widget::svg(delete_svg))
+                            .on_press(Message::DeleteTOTP(label.clone()))
+                            .class(cosmic::theme::Button::Destructive)
+                            .width(Length::FillPortion(1))
+                            .into();
                     let totp_code_text = widget::text::title1(totp_code)
-                        .width(Length::FillPortion(3))
+                        .width(Length::FillPortion(12))
                         .height(Length::Fill)
                         .align_y(Alignment::Center)
                         .align_x(Alignment::End);
                     let totp_label_text = widget::text::title2(label)
-                        .width(Length::FillPortion(1))
+                        .width(Length::FillPortion(4))
                         .height(Length::Fill)
                         .align_y(Alignment::Center)
                         .width(Length::Fill);
@@ -255,18 +242,19 @@ impl cosmic::Application for AppModel {
                         )
                         .height(Length::Fill),
                     )
-                    .width(Length::FillPortion(1))
+                    .width(Length::FillPortion(4))
                     .height(Length::Fill)
                     .into();
                     let totp_container: cosmic::Element<Message> = cosmic::widget::Container::new(
-                        widget::row::with_capacity(3)
+                        widget::row::with_capacity(4)
+                            .push(totp_delete_button)
                             .push(totp_label_text)
                             .push(totp_code_text)
                             .push(totp_lifetime_stack)
-                            .spacing(PADDING),
+                            .spacing(padding),
                     )
-                    .padding(PADDING)
-                    .height(PADDING * 4)
+                    .padding(padding)
+                    .height(60)
                     .width(Length::Fill)
                     .class(theme::Container::Card)
                     .into();
@@ -274,29 +262,63 @@ impl cosmic::Application for AppModel {
                     totp_containers.push(totp_container);
                 }
 
-                let add_svg =
-                    widget::svg::Handle::from_memory(include_bytes!("../svg/add.svg").as_slice());
-                let totp_add_button: cosmic::Element<Message> =
-                    widget::button::custom(widget::svg(add_svg)).into();
-                let divider: cosmic::Element<Message> = widget::divider::horizontal::heavy().into();
-
+                let divider: cosmic::Element<Message> = widget::row::with_capacity(3)
+                    .push(widget::Space::with_width(xxxl_spacing))
+                    .push(widget::divider::horizontal::default().width(Length::Fill))
+                    .push(widget::Space::with_width(xxxl_spacing))
+                    .into();
                 totp_containers.push(divider);
-                totp_containers.push(totp_add_button);
+
+                if self.adding_totp {
+                    let label_input = widget::text_input("Label", self.label_input.clone())
+                        .on_input(Message::UpdateLabelInput);
+                    let secret_input = widget::text_input("Secret", self.secret_input.clone())
+                        .on_input(Message::UpdateSecretInput);
+                    let add_button = widget::button::text("Add").on_press(Message::AddTOTPCode);
+                    let cancel_button =
+                        widget::button::destructive("Cancel").on_press(Message::CancelAddTOTP);
+                    let adding_totp_widget: cosmic::Element<Message> =
+                        widget::column::with_capacity(2)
+                            .push(
+                                widget::container(
+                                    widget::row::with_capacity(2)
+                                        .push(label_input)
+                                        .push(secret_input)
+                                        .spacing(padding),
+                                )
+                                .class(cosmic::theme::Container::Card)
+                                .padding(padding),
+                            )
+                            .push(
+                                widget::container(
+                                    widget::row::with_capacity(2)
+                                        .push(cancel_button)
+                                        .push(add_button)
+                                        .spacing(padding),
+                                )
+                                .width(Length::Fill)
+                                .align_x(Alignment::End),
+                            )
+                            .spacing(padding)
+                            .into();
+                    totp_containers.push(adding_totp_widget);
+                } else {
+                    let add_svg = widget::svg::Handle::from_memory(
+                        include_bytes!("../svg/add.svg").as_slice(),
+                    );
+                    let totp_add_button: cosmic::Element<Message> =
+                        widget::button::custom(widget::svg(add_svg))
+                            .on_press(Message::AddTOTPButton)
+                            .into();
+                    totp_containers.push(totp_add_button);
+                }
 
                 widget::column::with_children(totp_containers)
+                    .spacing(padding)
                     .width(Length::Fill)
                     .into()
             }
-        };
-
-        widget::container(content)
-            .width(600)
-            .height(Length::Fill)
-            .apply(widget::container)
-            .width(Length::Fill)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .into()
+        }
     }
 
     /// Register subscriptions for this application.
@@ -320,17 +342,17 @@ impl cosmic::Application for AppModel {
                 }),
         ];
 
+        let active_page: &Page = self.nav.active_data().unwrap();
+
         // Conditionally enables a timer that emits a message every second.
-        if self.watch_is_active {
+        if *active_page == Page::Oath {
             subscriptions.push(Subscription::run(|| {
                 iced_futures::stream::channel(1, |mut emitter| async move {
-                    let mut time = 1;
                     let mut interval = tokio::time::interval(Duration::from_secs(1));
 
                     loop {
                         interval.tick().await;
-                        _ = emitter.send(Message::WatchTick(time)).await;
-                        time += 1;
+                        _ = emitter.send(Message::RefreshTOTPLifespan).await;
                     }
                 })
             }));
@@ -345,34 +367,48 @@ impl cosmic::Application for AppModel {
     /// on the application's async runtime.
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
-            Message::WatchTick(time) => {
-                self.time = time;
+            Message::RefreshTOTPLifespan => (),
+            Message::DeleteTOTP(label) => {
+                let solo2 = self.solo2.as_mut().unwrap();
+                let mut app = Oath::select(solo2).expect("Could not enter oath app.");
+                app.delete(label).expect("Could not delete TOTP.");
+                self.secret_input = "".to_string();
+                self.label_input = "".to_string();
+                self.update_devices();
+            }
+            Message::UpdateLabelInput(label) => self.label_input = label,
+            Message::UpdateSecretInput(secret) => self.secret_input = secret,
+            Message::CancelAddTOTP => self.adding_totp = false,
+            Message::AddTOTPCode => {
+                if self.secret_input.len() != 16 {
+                    self.invalid_totp_code_length = true;
+                } else {
+                    self.invalid_totp_code_length = false;
+                    let solo2 = self.solo2.as_mut().unwrap(); // Can unwrap because totp screen won't be shown if there are no devices
+                    let mut app = Oath::select(solo2).expect("Could not enter oath app.");
+
+                    app.register(
+                        solo2::apps::oath::Credential::default_totp(
+                            &self.label_input,
+                            &self.secret_input,
+                        )
+                        .expect("Could not get credential"),
+                    )
+                    .expect("Could not register TOTP code.");
+                    // Clear inputs and get out of adding_totp screen
+                    self.label_input = "".to_string();
+                    self.secret_input = "".to_string();
+                    self.adding_totp = false;
+                    self.update_devices();
+                }
+            }
+            Message::AddTOTPButton => {
+                self.adding_totp = true;
             }
 
-            Message::ToggleWatch => {
-                self.watch_is_active = !self.watch_is_active;
-            }
-
-            // Message::ToggleContextPage(context_page) => {
-            //     if self.context_page == context_page {
-            //         // Close the context drawer if the toggled context page is the same.
-            //         self.core.window.show_context = !self.core.window.show_context;
-            //     } else {
-            //         // Open the context drawer to display the requested context page.
-            //         self.context_page = context_page;
-            //         self.core.window.show_context = true;
-            //     }
-            // }
             Message::UpdateConfig(config) => {
                 self.config = config;
             }
-
-            Message::LaunchUrl(url) => match open::that_detached(&url) {
-                Ok(()) => {}
-                Err(err) => {
-                    eprintln!("failed to open {url:?}: {err}");
-                }
-            },
         }
         Task::none()
     }
@@ -402,9 +438,51 @@ impl AppModel {
             Task::none()
         }
     }
+    pub fn update_devices(&mut self) {
+        // Get rid of solo2 device to ensure connection to device is broken so it will be reset when the smart card state is refreshed, like when adding or deleting a key
+        self.solo2 = Option::None;
+        self.solo2 = Self::get_device();
+        if self.solo2.is_some() {
+            self.totp_list = Self::get_device_info(self.solo2.as_mut().unwrap());
+        }
+    }
+    fn get_device() -> Option<solo2::Solo2> {
+        // Set up device and totp_list fields
+        let solo2_device: Option<solo2::Solo2>;
+        let mut devices = solo2::Device::list();
+        if devices.len() == 0 {
+            solo2_device = Option::None;
+        } else {
+            // Convert from Device type to Solo2 type
+            solo2_device = Option::Some(
+                devices
+                    .swap_remove(0)
+                    .into_solo2()
+                    .expect("Device is not a solo2 device."),
+            );
+        }
+        solo2_device
+    }
+    fn get_device_info(solo2_device: &mut solo2::Solo2) -> Vec<(String, String)> {
+        // Oath app
+        let mut app = Oath::select(solo2_device).expect("Could not enter OATH app:");
+        let app_list = app
+            .list()
+            .unwrap_or_else(|_| vec!["No TOTP codes.".to_string()]);
+        let mut totp_list: Vec<(String, String)> = vec![];
+
+        for label in app_list.iter() {
+            let totp_code = app
+                .authenticate(oath::Authenticate::with_label(&label))
+                .expect("No TOTP");
+            totp_list.push((label.to_string(), totp_code));
+        }
+        totp_list
+    }
 }
 
 /// The page to display in the application.
+#[derive(Eq, PartialEq)]
 pub enum Page {
     Oath,
     Admin,
