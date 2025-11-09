@@ -1,22 +1,23 @@
-extern crate cosmic;
-mod message;
-mod state;
-mod totp_subscription;
-mod update;
-mod view;
-use cosmic::iced;
-// use cosmic::iced::Theme;
-use message::Message;
-use state::State;
+// SPDX-License-Identifier: AGPL-3.0
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let settings = cosmic::app::Settings::default();
-    let args = vec![(state::Content::Oath, "Solo2 GUI".to_string())];
-    cosmic::app::run::<State>(settings, args)?;
+mod app;
+mod config;
+mod i18n;
 
-    Ok(())
-    // iced::application("Solo2 GUI", State::update, State::view)
-    // .theme(|_| Theme::Dark)
-    // .subscription(State::totp_subscription)
-    // .init()
+fn main() -> cosmic::iced::Result {
+    // Get the system's preferred languages.
+    let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
+
+    // Enable localizations to be applied.
+    i18n::init(&requested_languages);
+
+    // Settings for configuring the application window and iced runtime.
+    let settings = cosmic::app::Settings::default().size_limits(
+        cosmic::iced::Limits::NONE
+            .min_width(360.0)
+            .min_height(180.0),
+    );
+
+    // Starts the application's event loop with `()` as the application's flags.
+    cosmic::app::run::<app::AppModel>(settings, ())
 }

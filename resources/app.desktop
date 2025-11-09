@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Solo2 Gui
+Comment=An app for interacting with solo2 devices, especially OATH TOTP codes.
+Type=Application
+Icon=com.github.cunningcoder5255.solo2-gui
+Exec=solo2-gui %F
+Terminal=false
+StartupNotify=true
+Categories=COSMIC
+Keywords=COSMIC
+MimeType=
