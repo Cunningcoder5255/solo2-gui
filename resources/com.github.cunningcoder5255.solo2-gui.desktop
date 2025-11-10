@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+
+Name=Solo2 GUI
+Exec=/usr/bin/solo2-gui
+Icon=preferences-desktop
+
+Comment=A GUI app for managing Solo 2 security keys.
+
+Categories=Utilities;
+Keywords=security;solo;solo2;totp;oath;code;
+
+NoDisplay=false

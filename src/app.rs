@@ -8,6 +8,7 @@ use cosmic::theme;
 use cosmic::widget::{self, icon, nav_bar};
 use cosmic::{iced_futures, prelude::*};
 use futures_util::SinkExt;
+use solo2::apps::Admin;
 use solo2::apps::{Oath, oath};
 use solo2::{Select, UuidSelectable};
 use std::time::Duration;
@@ -45,6 +46,9 @@ pub struct AppModel {
     invalid_totp_code_length: bool,
     /// The TOTP we asking to confirm deletion of, "" if none
     deleting_totp: Option<String>,
+    uuid: String,
+    version: String,
+    locked: bool,
 }
 
 /// Messages emitted by the application and its widgets.
@@ -60,6 +64,8 @@ pub enum Message {
     RefreshTOTPLifespan,
     // Copy a TOTP code to clipboard
     CopyTOTP(String),
+    // Wink the solo2 device's LED
+    Wink,
     AddTOTPButton,
     CancelAddTOTP,
     AddTOTPCode,
@@ -110,8 +116,20 @@ impl cosmic::Application for AppModel {
             .icon(icon::from_name("applications-system-symbolic"));
         let mut solo2 = AppModel::get_device();
         let mut totp_list: Vec<(String, String)> = vec![];
+        let mut uuid = "".to_string();
+        let mut version = "".to_string();
+        let mut locked = false;
         if solo2.is_some() {
             totp_list = AppModel::get_device_info(solo2.as_mut().unwrap());
+
+            let mut admin_app =
+                Admin::select(solo2.as_mut().unwrap()).expect("Could not enter admin app:");
+
+            locked = admin_app
+                .locked()
+                .expect("Could not find out if device was locked:");
+            uuid = solo2.as_ref().unwrap().uuid().simple().to_string();
+            version = solo2.as_ref().unwrap().version().to_semver();
         }
 
         // Create the about widget
@@ -129,6 +147,9 @@ impl cosmic::Application for AppModel {
             // about,
             totp_list,
             solo2,
+            uuid,
+            version,
+            locked,
             adding_totp: false,
             label_input: "".to_string(),
             secret_input: "".to_string(),
@@ -199,7 +220,36 @@ impl cosmic::Application for AppModel {
         let xxxl_spacing: u16 = cosmic::theme::spacing().space_xxxl;
         // let space_s = cosmic::theme::spacing().space_s;
         match self.nav.active_data::<Page>().unwrap() {
-            Page::Admin => widget::text("Admin page").into(),
+            // Admin page data
+            Page::Admin => {
+                let uuid_text: cosmic::Element<Message> = widget::row::with_capacity(2)
+                    .push(widget::text("UUID:"))
+                    .push(widget::text(&self.uuid))
+                    .spacing(padding)
+                    .into();
+                let version: cosmic::Element<Message> = widget::row::with_capacity(2)
+                    .push(widget::text("Firmware Version:"))
+                    .push(widget::text(&self.version))
+                    .spacing(padding)
+                    .into();
+                let locked: cosmic::Element<Message> = widget::row::with_capacity(2)
+                    .push(widget::text("Locked:"))
+                    .push(widget::text(self.locked.to_string()))
+                    .spacing(padding)
+                    .into();
+                let wink_button: cosmic::Element<Message> = widget::button::text("Wink")
+                    .width(Length::Shrink)
+                    .on_press(Message::Wink)
+                    .into();
+
+                return widget::column::with_capacity(4)
+                    .push(version)
+                    .push(uuid_text)
+                    .push(locked)
+                    .push(wink_button)
+                    .spacing(padding)
+                    .into();
+            }
 
             Page::Oath => {
                 // If there aren't any solo2 devices, tell the user and return early since there won't be any codes
@@ -447,6 +497,11 @@ impl cosmic::Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         let mut task: Option<cosmic::Task<cosmic::Action<Message>>> = None;
         match message {
+            Message::Wink => {
+                let mut admin_app = Admin::select(self.solo2.as_mut().unwrap())
+                    .expect("Could not enter admin app:");
+                let _ = admin_app.wink();
+            }
             Message::CopyTOTP(label) => {
                 let solo2 = self.solo2.as_mut().unwrap();
                 let mut app = Oath::select(solo2).expect("Could not enter oath app.");
